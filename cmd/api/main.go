@@ -6,11 +6,17 @@ import (
 	"time"
 
 	"github.com/bhavesh256/go-api-project/internal/config"
+	"github.com/bhavesh256/go-api-project/internal/db"
 	"github.com/bhavesh256/go-api-project/internal/handlers"
 )
 
 func main() {
 	cfg := config.MustLoad()
+	_, err := db.Connect(cfg.DatabaseUrl)
+	if err != nil {
+		log.Fatalf("main.db.connect: %v", err)
+	}
+	log.Println("database connected")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handlers.Health)
