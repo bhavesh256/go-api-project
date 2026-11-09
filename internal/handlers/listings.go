@@ -17,59 +17,65 @@ type listing struct {
 	Created_at  time.Time `json:"created_at"`
 }
 
-func List(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		rows, err := db.Query(
-			`SELECT id, title, description, price, city, created_at
-			FROM listings
-			ORDER BY created_at DESC
-			LIMIT 100`)
-		if err != nil {
-			log.Printf("query: %v", err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
+type ListingHandler struct {
+	db *sql.DB
+}
 
-		defer rows.Close()
-
-		listings := []listing{}
-		for rows.Next() {
-			var l listing
-			if err := rows.Scan(&l.Id, &l.Title, &l.Description, &l.Price, &l.City, &l.Created_at); err != nil {
-				log.Printf("rows.Scan: %v", err)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
-				return
-			}
-
-			listings = append(listings, l)
-		}
-
-		if err := rows.Err(); err != nil {
-			log.Printf("rows,err: %v", err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(listings)
+func NewListingHandler(db *sql.DB) *ListingHandler {
+	return &ListingHandler{
+		db: db,
 	}
 }
 
-func DeleteListing(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-		_, err := db.Exec(
-			`DELETE FROM listings WHERE id = $1`, id)
+func (lh ListingHandler) List(w http.ResponseWriter, r *http.Request) {
+	rows, err := lh.db.Query(
+		`SELECT id, title, description, price, city, created_at
+			FROM listings
+			ORDER BY created_at DESC
+			LIMIT 100`)
+	if err != nil {
+		log.Printf("query: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 
-		if err != nil {
-			log.Printf("delete: %v", err)
+	defer rows.Close()
+
+	listings := []listing{}
+
+	for rows.Next() {
+		var l listing
+		if err := rows.Scan(&l.Id, &l.Title, &l.Description, &l.Price, &l.City, &l.Created_at); err != nil {
+			log.Printf("rows.Scan: %v", err)
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 
-		w.WriteHeader(http.StatusNoContent)
-
-		w.Write([]byte("ok"))
+		listings = append(listings, l)
 	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("rows,err: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(listings)
+}
+
+func (lh ListingHandler) DeleteListing(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	_, err := lh.db.Exec(
+		`DELETE FROM listings WHERE id = $1`, id)
+
+	if err != nil {
+		log.Printf("delete: %v", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+	w.Write([]byte("ok"))
 }
