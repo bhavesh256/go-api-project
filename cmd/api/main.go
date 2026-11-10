@@ -2,7 +2,9 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/bhavesh256/go-api-project/internal/config"
@@ -18,7 +20,15 @@ func main() {
 	}
 	log.Println("database connected")
 
-	lh := handlers.NewListingHandler(db)
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelInfo,
+	})
+	
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+
+	lh := handlers.NewListingHandler(db, logger)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handlers.Health)
